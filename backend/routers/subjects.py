@@ -262,7 +262,7 @@ def generate_topics(subject_id: int, db: DB, user: CurrentUser, body: GenerateTo
 
     message = _anthropic.messages.create(
         model=LLM_MODEL,
-        max_tokens=1024,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
 

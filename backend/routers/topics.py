@@ -169,7 +169,7 @@ def generate_freetext_question(topic_id: int, db: DB, user: CurrentUser):
 
     message = _anthropic.messages.create(
         model=LLM_MODEL,
-        max_tokens=512,
+        max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
 
