@@ -6,7 +6,7 @@ from pypdf import PdfReader
 from sqlalchemy import delete, func, select
 
 from auth import DB, CurrentUser
-from dependencies import LLM_MODEL, _anthropic
+from dependencies import LLM_MODEL, _anthropic, extract_text
 from models import Subject, TestResult, Topic, TopicDependency
 from schemas import (
     AnalyzeExamOut,
@@ -266,7 +266,7 @@ def generate_topics(subject_id: int, db: DB, user: CurrentUser, body: GenerateTo
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     parsed = _TopicList.model_validate_json(raw)
 
     existing = db.query(Topic).filter(Topic.subject_id == subject_id).first()
@@ -337,7 +337,7 @@ async def analyze_exam(subject_id: int, db: DB, user: CurrentUser, file: UploadF
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     analysis = _ExamAnalysis.model_validate_json(raw)
 
     valid_ids = {t.id for t in topics}

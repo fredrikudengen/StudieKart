@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import delete, func, select
 
 from auth import DB, CurrentUser
-from dependencies import LLM_MODEL, _anthropic
+from dependencies import LLM_MODEL, _anthropic, extract_text
 from models import Subject, TestResult, Topic, TopicDependency
 from schemas import (
     FreetextQuestionOut,
@@ -140,7 +140,7 @@ def generate_question(topic_id: int, db: DB, user: CurrentUser):
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     return [
         QuestionOut(question=q.question, options=q.options, correct_index=q.correct_index, explanation=q.explanation)
         for q in _QuestionList.model_validate_json(raw).questions
@@ -173,5 +173,5 @@ def generate_freetext_question(topic_id: int, db: DB, user: CurrentUser):
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     return FreetextQuestionOut.model_validate_json(raw)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from auth import DB, CurrentUser
-from dependencies import LLM_MODEL, _anthropic
+from dependencies import LLM_MODEL, _anthropic, extract_text
 from models import Subject, TestResult, Topic
 from schemas import (
     FreetextEvalIn,
@@ -76,7 +76,7 @@ def evaluate_freetext(body: FreetextEvalIn, db: DB, user: CurrentUser):
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     eval_result = _FreetextEval.model_validate_json(raw)
 
     result = TestResult(
