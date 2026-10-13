@@ -1,8 +1,11 @@
+import logging
 import os
 
 import anthropic
 from fastapi import HTTPException
 from pydantic import ValidationError
+
+logger = logging.getLogger(__name__)
 
 LLM_MODEL = "claude-sonnet-5.5"
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-do-not-use-in-production")
@@ -28,4 +31,5 @@ def generate_structured(prompt: str, max_tokens: int, schema):
         raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         return schema.model_validate_json(raw)
     except (anthropic.APIError, ValidationError, ValueError) as e:
+        logger.exception("LLM call failed for schema %s", schema.__name__)
         raise HTTPException(status_code=502, detail="Kunne ikke generere innhold fra LLM. Prøv igjen.") from e
