@@ -17,7 +17,10 @@ def extract_text(message) -> str:
     for block in message.content:
         if block.type == "text":
             return block.text
-    raise ValueError("No text block in Anthropic response")
+    block_types = [block.type for block in message.content]
+    raise ValueError(
+        f"No text block in Anthropic response (stop_reason={message.stop_reason}, blocks={block_types})"
+    )
 
 
 def generate_structured(prompt: str, max_tokens: int, schema):
