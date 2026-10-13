@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
-LLM_MODEL = "claude-sonnet-5.5"
+LLM_MODEL = "claude-sonnet-5-5"
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-do-not-use-in-production")
 ALGORITHM = "HS256"
 _anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
