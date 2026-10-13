@@ -26,6 +26,7 @@ def generate_structured(prompt: str, max_tokens: int, schema):
         message = _anthropic.messages.create(
             model=LLM_MODEL,
             max_tokens=max_tokens,
+            thinking={"type": "between_tools"},
             messages=[{"role": "user", "content": prompt}],
         )
         raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
