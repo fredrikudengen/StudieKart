@@ -32,6 +32,21 @@ def generate_structured(prompt: str, max_tokens: int, schema):
             thinking={"type": "between_tools"},
             messages=[{"role": "user", "content": prompt}],
         )
+        if message.stop_reason == "refusal":
+            category = getattr(message.stop_details, "category", None)
+            logger.warning("%s declined (category=%s); retrying with claude-sonnet-5", LLM_MODEL, category)
+            message = _anthropic.messages.create(
+                model="claude-sonnet-5",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        if message.stop_reason == "refusal":
+            category = getattr(message.stop_details, "category", None)
+            logger.warning("Fallback model also declined (category=%s)", category)
+            raise HTTPException(
+                status_code=502,
+                detail="LLM-et avslo å generere dette innholdet. Prøv å omformulere temaet.",
+            )
         raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         return schema.model_validate_json(raw)
     except (anthropic.APIError, ValidationError, ValueError) as e:
