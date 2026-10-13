@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import delete, func, select
 
 from auth import DB, CurrentUser
-from dependencies import LLM_MODEL, _anthropic, extract_text
+from dependencies import generate_structured
 from models import Subject, TestResult, Topic, TopicDependency
 from schemas import (
     FreetextQuestionOut,
@@ -134,16 +134,10 @@ def generate_question(topic_id: int, db: DB, user: CurrentUser):
         "correct_index er 0-basert. Skriv korrekt norsk, unngå markdown og LaTeX."
     )
 
-    message = _anthropic.messages.create(
-        model=LLM_MODEL,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    parsed = generate_structured(prompt, max_tokens=8192, schema=_QuestionList)
     return [
         QuestionOut(question=q.question, options=q.options, correct_index=q.correct_index, explanation=q.explanation)
-        for q in _QuestionList.model_validate_json(raw).questions
+        for q in parsed.questions
     ]
 
 
@@ -167,11 +161,4 @@ def generate_freetext_question(topic_id: int, db: DB, user: CurrentUser):
         "Skriv korrekt norsk, unngå markdown og LaTeX."
     )
 
-    message = _anthropic.messages.create(
-        model=LLM_MODEL,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    return FreetextQuestionOut.model_validate_json(raw)
+    return generate_structured(prompt, max_tokens=1024, schema=FreetextQuestionOut)

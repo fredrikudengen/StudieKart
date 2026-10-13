@@ -6,7 +6,7 @@ from pypdf import PdfReader
 from sqlalchemy import delete, func, select
 
 from auth import DB, CurrentUser
-from dependencies import LLM_MODEL, _anthropic, extract_text
+from dependencies import generate_structured
 from models import Subject, TestResult, Topic, TopicDependency
 from schemas import (
     AnalyzeExamOut,
@@ -260,14 +260,7 @@ def generate_topics(subject_id: int, db: DB, user: CurrentUser, body: GenerateTo
             "Skriv korrekt norsk, unngå markdown og LaTeX"
         )
 
-    message = _anthropic.messages.create(
-        model=LLM_MODEL,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    parsed = _TopicList.model_validate_json(raw)
+    parsed = generate_structured(prompt, max_tokens=4096, schema=_TopicList)
 
     existing = db.query(Topic).filter(Topic.subject_id == subject_id).first()
     if existing:
@@ -331,14 +324,7 @@ async def analyze_exam(subject_id: int, db: DB, user: CurrentUser, file: UploadF
         '{"often_on_exam_ids": [1, 2], "dependencies": [{"from_topic_id": 3, "to_topic_id": 1}], "new_topics": ["Nytt tema"]}'
     )
 
-    message = _anthropic.messages.create(
-        model=LLM_MODEL,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    analysis = _ExamAnalysis.model_validate_json(raw)
+    analysis = generate_structured(prompt, max_tokens=2048, schema=_ExamAnalysis)
 
     valid_ids = {t.id for t in topics}
 
