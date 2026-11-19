@@ -123,21 +123,18 @@ def generate_question(topic_id: int, db: DB, user: CurrentUser):
         f"Du er en pedagogisk assistent som lager eksamensoppgaver.\n"
         f"Emne: {subject.name}\n"
         f"Tema: {topic.name}\n\n"
-        "Lag 6 ulike flervalgsspørsmål med fire svaralternativer hver. Kun ett alternativ er riktig per spørsmål.\n"
-        "Hvert spørsmål skal ha to felt:\n"
-        "- reasoning: din interne steg-for-steg-verifisering. Gå gjennom hvert alternativ og bekreft at "
-        "correct_index peker på det eneste riktige svaret. Bruk dette feltet til å tenke høyt og unngå feil.\n"
-        "- explanation: en kort, pedagogisk forklaring skrevet direkte til studenten (2-3 setninger). "
+        "Lag 6 ulike flervalgsspørsmål med fire svaralternativer hver. Kun ett alternativ er riktig per spørsmål. "
+        "Kontroller hvert spørsmål før du svarer: nøyaktig ett alternativ skal være riktig, og correct_index "
+        "(0-basert) skal peke på det.\n"
+        "explanation er en kort, pedagogisk forklaring skrevet direkte til studenten (2-3 setninger). "
         "Forklar hvorfor det riktige svaret er riktig. Ikke bruk 'La oss sjekke'- eller oppramsings-stil — "
         "skriv som om du forklarer konseptet til en student som nettopp svarte feil.\n\n"
-        "Returner kun JSON i dette formatet:\n"
-        '{"questions": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, '
-        '"reasoning": "Alternativ A er riktig fordi ... B er feil fordi ...", '
-        '"explanation": "..."}, ...]}\n'
-        "correct_index er 0-basert. Skriv korrekt norsk, unngå markdown og LaTeX."
+        "Skriv korrekt norsk, unngå markdown og LaTeX."
     )
 
-    parsed = generate_structured(prompt, max_tokens=8192, schema=_QuestionList)
+    # The model checks its answers in hidden thinking; asking it to write that reasoning
+    # into the output triggers `reasoning_extraction` refusals.
+    parsed = generate_structured(prompt, max_tokens=16000, schema=_QuestionList, effort="medium")
     return [
         QuestionOut(question=q.question, options=q.options, correct_index=q.correct_index, explanation=q.explanation)
         for q in parsed.questions

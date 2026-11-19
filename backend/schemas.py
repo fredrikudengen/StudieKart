@@ -126,7 +126,6 @@ class _QuestionRaw(BaseModel):
     question: str
     options: list[str]
     correct_index: int
-    reasoning: str
     explanation: str
 
 

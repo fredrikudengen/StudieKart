@@ -2,6 +2,7 @@ import logging
 import os
 
 import anthropic
+from anthropic import transform_schema
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -28,14 +29,26 @@ def extract_text(message) -> str:
     )
 
 
-def generate_structured(prompt: str, max_tokens: int, schema):
-    """Call the LLM and parse its JSON reply into `schema`, surfacing failures as a 502 instead of an uncaught 500."""
+def generate_structured(prompt: str, max_tokens: int, schema, effort: str | None = None):
+    """Call the LLM and parse its JSON reply into `schema`, surfacing failures as a 502 instead of an uncaught 500.
+
+    With `effort` unset, thinking is off (fast). Set it (e.g. "medium") when the task benefits from the
+    model reasoning before it answers; thinking tokens count toward `max_tokens`.
+    """
+    # Constrain the reply to the schema so the model cannot emit malformed JSON (e.g. trailing commas).
+    output_config = {"format": {"type": "json_schema", "schema": transform_schema(schema)}}
+    if effort:
+        output_config["effort"] = effort
+        thinking_kwargs = {}  # Sonnet 5.5 runs adaptive thinking when `thinking` is omitted
+    else:
+        thinking_kwargs = {"thinking": {"type": "between_tools"}}
     try:
         message = _anthropic.messages.create(
             model=LLM_MODEL,
             max_tokens=max_tokens,
-            thinking={"type": "between_tools"},
+            output_config=output_config,
             messages=[{"role": "user", "content": prompt}],
+            **thinking_kwargs,
         )
         if message.stop_reason == "refusal":
             category = getattr(message.stop_details, "category", None)
@@ -43,6 +56,7 @@ def generate_structured(prompt: str, max_tokens: int, schema):
             message = _anthropic.messages.create(
                 model="claude-sonnet-5",
                 max_tokens=max_tokens,
+                output_config=output_config,
                 messages=[{"role": "user", "content": prompt}],
             )
         if message.stop_reason == "refusal":
@@ -52,8 +66,9 @@ def generate_structured(prompt: str, max_tokens: int, schema):
                 status_code=502,
                 detail="LLM-et avslo å generere dette innholdet. Prøv å omformulere temaet.",
             )
-        raw = extract_text(message).strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        return schema.model_validate_json(raw)
+        if message.stop_reason == "max_tokens":
+            raise ValueError(f"LLM output hit max_tokens={max_tokens} before the JSON was complete")
+        return schema.model_validate_json(extract_text(message))
     except (anthropic.APIError, ValidationError, ValueError) as e:
         logger.exception("LLM call failed for schema %s", schema.__name__)
         raise HTTPException(status_code=502, detail="Kunne ikke generere innhold fra LLM. Prøv igjen.") from e

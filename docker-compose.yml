@@ -16,6 +16,8 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    # Dev only: auto-reload on code changes. The image's default CMD is the production server.
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     env_file: .env
     ports:
       - "8000:8000"
@@ -26,7 +28,9 @@ services:
       - ./backend:/app
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     restart: unless-stopped
     ports:
       - "5173:5173"
