@@ -17,8 +17,11 @@ router = APIRouter(prefix="/api")
 
 @router.post("/test-results", response_model=TestResultOut, status_code=201, responses={404: {"description": "Topic not found"}})
 def create_test_result(body: TestResultIn, db: DB, user: CurrentUser):
-    if not db.get(Topic, body.topic_id):
+    topic = db.get(Topic, body.topic_id)
+    if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    if topic.subject.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     result = TestResult(
         topic_id=body.topic_id,
         user_id=user.id,
@@ -71,6 +74,7 @@ def evaluate_freetext(body: FreetextEvalIn, db: DB, user: CurrentUser):
     )
 
     eval_result = generate_structured(prompt, max_tokens=1024, schema=_FreetextEval)
+    eval_result.score = min(max(eval_result.score, 0.0), 1.0)
 
     result = TestResult(
         topic_id=body.topic_id,

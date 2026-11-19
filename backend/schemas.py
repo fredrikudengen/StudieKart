@@ -1,17 +1,34 @@
 import datetime
+import re
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_email(value: str) -> str:
+    value = value.strip().lower()
+    if not _EMAIL_RE.match(value):
+        raise ValueError("Invalid email address")
+    return value
 
 
 class RegisterIn(BaseModel):
     email: str
-    password: str
+    password: str = Field(min_length=8, max_length=72)
+
+    _norm_email = field_validator("email")(_normalize_email)
 
 
 class LoginIn(BaseModel):
     email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def _norm_email(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 class TokenOut(BaseModel):
@@ -83,7 +100,7 @@ class TopicWithStatusOut(BaseModel):
 
 class TestResultIn(BaseModel):
     topic_id: int
-    score: float
+    score: float = Field(ge=0, le=1)
     flagged_by_user: bool = False
 
 

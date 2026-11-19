@@ -3,6 +3,7 @@ import json
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 from sqlalchemy import delete, func, select
 
 from auth import DB, CurrentUser
@@ -29,6 +30,8 @@ from schemas import (
 )
 
 router = APIRouter(prefix="/api")
+
+MAX_PDF_BYTES = 20 * 1024 * 1024
 
 
 @router.post("/subjects", response_model=SubjectOut, status_code=201)
@@ -290,7 +293,7 @@ def generate_topics(subject_id: int, db: DB, user: CurrentUser, body: GenerateTo
 
 
 @router.post("/subjects/{subject_id}/analyze-exam", response_model=AnalyzeExamOut, status_code=200, responses={404: {"description": "Subject not found"}, 400: {"description": "Bad request"}})
-async def analyze_exam(subject_id: int, db: DB, user: CurrentUser, file: UploadFile = File(...)):
+def analyze_exam(subject_id: int, db: DB, user: CurrentUser, file: UploadFile = File(...)):
     subject = db.get(Subject, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -301,9 +304,14 @@ async def analyze_exam(subject_id: int, db: DB, user: CurrentUser, file: UploadF
     if not topics:
         raise HTTPException(status_code=400, detail="No topics found for this subject")
 
-    content = await file.read()
-    reader = PdfReader(io.BytesIO(content))
-    exam_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+    content = file.file.read(MAX_PDF_BYTES + 1)
+    if len(content) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=413, detail="PDF is too large (max 20 MB)")
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        exam_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+    except (PyPdfError, ValueError):
+        raise HTTPException(status_code=400, detail="File is not a valid PDF")
     if not exam_text:
         raise HTTPException(status_code=400, detail="Could not extract text from PDF")
 

@@ -24,6 +24,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password }),
       })
       if (res.status === 409) throw new Error('E-posten er allerede registrert')
+      if (res.status === 422) throw new Error('Ugyldig e-post, eller passordet er kortere enn 8 tegn')
       if (!res.ok) throw new Error('Kunne ikke opprette konto')
       const { access_token } = await res.json()
       setToken(access_token)

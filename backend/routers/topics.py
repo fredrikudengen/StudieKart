@@ -20,14 +20,17 @@ router = APIRouter(prefix="/api")
 
 @router.get("/topics", response_model=list[TopicWithStatusOut], responses={404: {"description": "Subject not found"}})
 def get_topics(subject_id: int, db: DB, user: CurrentUser):
-    if not db.get(Subject, subject_id):
+    subject = db.get(Subject, subject_id)
+    if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
+    if subject.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     topics = db.scalars(select(Topic).where(Topic.subject_id == subject_id)).all()
 
     max_ts_subq = (
         select(TestResult.topic_id, func.max(TestResult.timestamp).label("max_ts"))
-        .where(TestResult.user_id == user.id)
+        .where(TestResult.user_id == user.id, TestResult.topic_id.in_([t.id for t in topics]))
         .group_by(TestResult.topic_id)
         .subquery()
     )

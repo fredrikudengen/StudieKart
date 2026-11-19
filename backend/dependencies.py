@@ -2,13 +2,18 @@ import logging
 import os
 
 import anthropic
+from dotenv import load_dotenv
 from fastapi import HTTPException
 from pydantic import ValidationError
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 LLM_MODEL = "claude-sonnet-5-5"
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-do-not-use-in-production")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is not set; refusing to start with a guessable token secret.")
 ALGORITHM = "HS256"
 _anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
